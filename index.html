@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Seguimiento de Ofertas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg:        #0f1117;
+    --bg2:       #171b26;
+    --bg3:       #1e2333;
+    --border:    rgba(255,255,255,0.07);
+    --text:      #e8eaf0;
+    --muted:     #7a80a0;
+    --accent:    #4f7cff;
+    --accent2:   #34d399;
+    --accent3:   #f59e0b;
+    --danger:    #f43f5e;
+    --warn:      #fb923c;
+    --purple:    #a78bfa;
+    --font:      'DM Sans', sans-serif;
+    --mono:      'DM Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 36px; height: 36px; background: var(--accent);
+    border-radius: 10px; display: grid; place-items: center;
+    font-size: 18px;
+  }
+  .logo-text { font-size: 15px; font-weight: 600; letter-spacing: -.3px; }
+  .logo-sub  { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 1px; }
+
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .last-update { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+  #api-form { display: flex; align-items: center; gap: 8px; }
+  #api-form input {
+    background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 7px 12px;
+    font-family: var(--mono); font-size: 11px; width: 340px;
+    outline: none; transition: border-color .2s;
+  }
+  #api-form input:focus { border-color: var(--accent); }
+  #api-form input::placeholder { color: var(--muted); }
+  .btn {
+    background: var(--accent); color: #fff; border: none;
+    border-radius: 8px; padding: 8px 16px; font-size: 12px;
+    font-family: var(--font); font-weight: 600; cursor: pointer;
+    transition: opacity .15s;
+  }
+  .btn:hover { opacity: .85; }
+  .btn.secondary {
+    background: var(--bg3); color: var(--text); border: 1px solid var(--border);
+  }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex; gap: 4px;
+    padding: 12px 32px 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .tab {
+    padding: 9px 18px; border-radius: 8px 8px 0 0; font-size: 13px;
+    font-weight: 500; cursor: pointer; color: var(--muted);
+    border-bottom: 2px solid transparent; transition: all .15s;
+  }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tab:hover:not(.active) { color: var(--text); background: var(--bg3); }
+
+  /* ── MAIN ── */
+  main { padding: 28px 32px; max-width: 1440px; margin: 0 auto; }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* ── KPI STRIP ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px; margin-bottom: 28px;
+  }
+  .kpi {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 18px 20px;
+    transition: border-color .2s;
+  }
+  .kpi:hover { border-color: rgba(255,255,255,.15); }
+  .kpi-label { font-size: 11px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+  .kpi-value { font-size: 26px; font-weight: 600; letter-spacing: -1px; line-height: 1; }
+  .kpi-sub   { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+
+  /* ── TWO-COL LAYOUT ── */
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .row-3-2 { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; margin-bottom: 20px; }
+  @media (max-width: 900px) { .row2, .row-3-2 { grid-template-columns: 1fr; } }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px 22px; overflow: hidden;
+  }
+  .card-title {
+    font-size: 13px; font-weight: 600; color: var(--text);
+    margin-bottom: 16px; display: flex; align-items: center;
+    justify-content: space-between;
+  }
+  .card-title span { font-size: 11px; color: var(--muted); font-weight: 400; }
+
+  /* ── TABLE ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th {
+    text-align: left; padding: 10px 12px; color: var(--muted);
+    font-family: var(--mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: .5px; border-bottom: 1px solid var(--border);
+    white-space: nowrap; font-weight: 500;
+  }
+  td {
+    padding: 10px 12px; border-bottom: 1px solid var(--border);
+    color: var(--text); white-space: nowrap; vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.03); }
+
+  /* ── STATUS BADGES ── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px; border-radius: 20px; font-size: 10px;
+    font-weight: 600; font-family: var(--mono); text-transform: uppercase; letter-spacing: .3px;
+  }
+  .badge-ACEPTADA   { background: rgba(52,211,153,.15); color: var(--accent2); }
+  .badge-NEGOCIACIÓN{ background: rgba(79,124,255,.15); color: var(--accent); }
+  .badge-ENVIADA    { background: rgba(167,139,250,.15); color: var(--purple); }
+  .badge-RECHAZADA  { background: rgba(244,63,94,.15);  color: var(--danger); }
+  .badge-VENCIDA    { background: rgba(251,146,60,.15); color: var(--warn); }
+  .badge-ANÁLISIS   { background: rgba(245,158,11,.15); color: var(--accent3); }
+
+  /* ── FILTER BAR ── */
+  .filter-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .filter-btn {
+    padding: 5px 12px; border-radius: 20px; font-size: 11px;
+    font-family: var(--mono); font-weight: 500; cursor: pointer;
+    background: var(--bg3); color: var(--muted);
+    border: 1px solid var(--border); transition: all .15s;
+  }
+  .filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* ── DONUT LEGEND ── */
+  .legend { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+  .legend-val { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+  /* ── CHART CONTAINER ── */
+  .chart-box { position: relative; }
+
+  /* ── LOADING ── */
+  #loading {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 16px; z-index: 999;
+  }
+  .spinner {
+    width: 36px; height: 36px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading p { font-size: 13px; color: var(--muted); font-family: var(--mono); }
+
+  /* ── EMPTY STATE ── */
+  .empty {
+    padding: 48px 24px; text-align: center; color: var(--muted); font-size: 13px;
+  }
+
+  /* ── NUMBER FORMAT ── */
+  .num { font-family: var(--mono); }
+
+  /* ── CONSOLIDADO TABLE ── */
+  .consol-table td:not(:first-child) { text-align: right; font-family: var(--mono); font-size: 11px; }
+  .consol-table th:not(:first-child) { text-align: right; }
+  .null-cell { color: var(--border); }
+
+  /* ── VENTA badge ── */
+  .tipo-SOLAR      { color: var(--accent3); }
+  .tipo-HIDRO      { color: #60a5fa; }
+  .tipo-BIOGAS     { color: var(--accent2); }
+  .tipo-PORTAFOLIO { color: var(--purple); }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p>Cargando datos...</p>
+</div>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    <div>
+      <div class="logo-text">Seguimiento de Ofertas</div>
+      <div class="logo-sub">Dashboard energético · 2026</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="last-update" id="last-update">—</span>
+    <form id="api-form" onsubmit="return false;">
+      <input id="api-url" type="text"
+        placeholder="Pega aquí tu URL de Apps Script → Guardar"
+        value="">
+      <button class="btn" onclick="saveAndLoad()">Conectar</button>
+    </form>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('resumen')">Resumen</div>
+  <div class="tab" onclick="showTab('compra')">Compra</div>
+  <div class="tab" onclick="showTab('venta')">Venta</div>
+  <div class="tab" onclick="showTab('consolidado')">Consolidado Anual</div>
+</div>
+
+<main>
+
+  <!-- ── RESUMEN ── -->
+  <section id="sec-resumen" class="section active">
+    <div class="kpi-grid" id="kpi-strip"></div>
+    <div class="row-3-2">
+      <div class="card">
+        <div class="card-title">Compra por año — energía [kWh/mes] <span id="chart-toggle-btn" style="cursor:pointer;color:var(--accent)" onclick="toggleConsolidChart()">Vista: barras apiladas</span></div>
+        <div class="chart-box" style="height:280px"><canvas id="chart-consolidado"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Estado ofertas de compra</div>
+        <div style="display:flex;gap:20px;align-items:center">
+          <div style="width:160px;height:160px;flex-shrink:0"><canvas id="chart-estados"></canvas></div>
+          <div class="legend" id="legend-estados"></div>
+        </div>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="card">
+        <div class="card-title">Tipo de generación — Compra</div>
+        <div class="chart-box" style="height:200px"><canvas id="chart-tipos-compra"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Compra vs Venta por año</div>
+        <div class="chart-box" style="height:200px"><canvas id="chart-compraventa"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── COMPRA ── -->
+  <section id="sec-compra" class="section">
+    <div class="filter-bar" id="filter-compra"></div>
+    <div class="card">
+      <div class="card-title">Ofertas de Compra <span id="compra-count"></span></div>
+      <div class="table-wrap">
+        <table id="table-compra">
+          <thead>
+            <tr>
+              <th>Código</th><th>Agente</th><th>Recurso</th>
+              <th>Tipo</th><th>Energía kWh/mes</th><th>Tarifa COP/kWh</th>
+              <th>Modalidad</th><th>Estado</th>
+              <th>Inicio</th><th>Fin</th><th>Comentarios</th>
+            </tr>
+          </thead>
+          <tbody id="body-compra"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── VENTA ── -->
+  <section id="sec-venta" class="section">
+    <div class="card">
+      <div class="card-title">Ofertas de Venta <span id="venta-count"></span></div>
+      <div class="table-wrap">
+        <table id="table-venta">
+          <thead>
+            <tr>
+              <th>Código</th><th>Agente</th><th>Recurso</th>
+              <th>Tipo</th><th>Energía kWh/mes</th><th>Tarifa COP/kWh</th>
+              <th>Modalidad</th><th>Estado</th>
+              <th>Inicio</th><th>Fin</th><th>Comentarios</th>
+            </tr>
+          </thead>
+          <tbody id="body-venta"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CONSOLIDADO ── -->
+  <section id="sec-consolidado" class="section">
+    <div class="card">
+      <div class="card-title">Consolidado Compra Anual — Energía [kWh/mes]</div>
+      <div class="table-wrap">
+        <table class="consol-table">
+          <thead>
+            <tr>
+              <th>Año</th><th>Aceptada</th><th>Enviada</th>
+              <th>Negociación</th><th>Rechazada</th><th>Vencida</th>
+              <th>Análisis</th><th>Posibles</th>
+            </tr>
+          </thead>
+          <tbody id="body-consolidado"></tbody>
+        </table>
+      </div>
+    </div>
+    <div style="height:20px"></div>
+    <div class="card" style="margin-top:0">
+      <div class="card-title">Evolución "Posibles" por año</div>
+      <div class="chart-box" style="height:260px"><canvas id="chart-posibles"></canvas></div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+// ── STATE ──
+const STORAGE_KEY = 'dashboard_api_url';
+let DATA = null;
+let consolidChart = null;
+let consolidMode = 'stacked'; // 'stacked' | 'line'
+
+// ── COLORS ──
+const STATUS_COLORS = {
+  'ACEPTADA':    '#34d399',
+  'NEGOCIACIÓN': '#4f7cff',
+  'ENVIADA':     '#a78bfa',
+  'RECHAZADA':   '#f43f5e',
+  'VENCIDA':     '#fb923c',
+  'ANÁLISIS':    '#f59e0b',
+};
+const CONSOL_COLORS = {
+  'ACEPTADA':    '#34d399',
+  'ENVIADA':     '#a78bfa',
+  'NEGOCIACIÓN': '#4f7cff',
+  'RECHAZADA':   '#f43f5e',
+  'VENCIDA':     '#fb923c',
+  'ANÁLISIS':    '#f59e0b',
+  'Posibles':    '#60a5fa',
+};
+const TIPO_COLORS = {
+  'SOLAR':      '#f59e0b',
+  'HIDRO':      '#60a5fa',
+  'BIOGAS':     '#34d399',
+  'PORTAFOLIO': '#a78bfa',
+};
+
+// ── DEMO DATA (se usa si no hay URL) ──
+const DEMO = {
+  ultimaActualizacion: new Date().toISOString(),
+  compra: [
+    { 'CÓDIGO OFERTA':'OMCE-SFE-IP-001-2026','AGENTE':'INGENIO PICHICHÍ S.A.','RECURSO':'INGENIO PICHICHI 1','TIPO DE GENERACIÓN':'BIOGAS','ENERGÍA [kWh/mes]':'1216800','TARIFA  [COP/kWh]':'340','MODALIDAD':'PLG','TIPO DE PAGO':'POSPAGO','ESTADO OFERTA':'NEGOCIACIÓN','FECHA INICIO':'2026-09-01','FECHA FIN':'2031-12-31','COMENTARIOS':'2da ronda de negociación' },
+    { 'CÓDIGO OFERTA':'SFE-HCC-002-2026','AGENTE':'CENTRAL HIDROELÉCTRICA CONCORDIA S.A.S. E.S.P.','RECURSO':'MAGALLO','TIPO DE GENERACIÓN':'HIDRO','ENERGÍA [kWh/mes]':'2325000','TARIFA  [COP/kWh]':'360','MODALIDAD':'PLG','TIPO DE PAGO':'POSPAGO','ESTADO OFERTA':'RECHAZADA','FECHA INICIO':'2026-06-01','FECHA FIN':'2028-12-31','COMENTARIOS':'' },
+    { 'CÓDIGO OFERTA':'SFE-BCCY-002-2026','AGENTE':'BCCY COLOMBIA HOLDING S.A.S. E.S.P.','RECURSO':'','TIPO DE GENERACIÓN':'BIOGAS','ENERGÍA [kWh/mes]':'1440000','TARIFA  [COP/kWh]':'325.69','MODALIDAD':'PLG','TIPO DE PAGO':'POSPAGO','ESTADO OFERTA':'VENCIDA','FECHA INICIO':'2026-07-01','FECHA FIN':'2038-12-31','COMENTARIOS':'' },
+    { 'CÓDIGO OFERTA':'SFE- SAMBA SOLAR-001-2026','AGENTE':'SAMBA SOLAR S.A.S','RECURSO':'','TIPO DE GENERACIÓN':'SOLAR','ENERGÍA [kWh/mes]':'166040','TARIFA  [COP/kWh]':'311.73','MODALIDAD':'PLG','TIPO DE PAGO':'POSPAGO','ESTADO OFERTA':'ENVIADA','FECHA INICIO':'2026-07-01','FECHA FIN':'2036-12-31','COMENTARIOS':'' },
+    { 'CÓDIGO OFERTA':'SFE- ACORDEON SOLAR-001-2026','AGENTE':'ACORDEÓN SOLAR S.A.S.','RECURSO':'','TIPO DE GENERACIÓN':'SOLAR','ENERGÍA [kWh/mes]':'197620','TARIFA  [COP/kWh]':'311.73','MODALIDAD':'PLG','TIPO DE PAGO':'POSPAGO','ESTADO OFERTA':'ENVIADA','FECHA INICIO':'2026-07-01','FECHA FIN':'2036-12-31','COMENTARIOS':'' },
+    { 'CÓDIGO OFERTA':'SFE- FLAUTA SOLAR-001-2026','AGENTE':'FLAUTA SOLAR S.A.S.','RECURSO':'','TIPO DE GENERACIÓN':'SOLAR','ENERGÍA [kWh/mes]':'197470','TARIFA  [COP/kWh]':'311.73','MODALIDAD':'PLG','TIPO DE PAGO':'POSPAGO','ESTADO OFERTA':'ENVIADA','FECHA INICIO':'2026-07-01','FECHA FIN':'2036-12-31','COMENTARIOS':'' },
+    { 'CÓDIGO OFERTA':'SFE- CUMBIA SOLAR-001-2026','AGENTE':'CUMBIA SOLAR S.A.S','RECURSO':'','TIPO DE GENERACIÓN':'SOLAR','ENERGÍA [kWh/mes]':'196970','TARIFA  [COP/kWh]':'311.73','MODALIDAD':'PLG','TIPO DE PAGO':'POSPAGO','ESTADO OFERTA':'ENVIADA','FECHA INICIO':'2026-07-01','FECHA FIN':'2036-12-31','COMENTARIOS':'' },
+    { 'CÓDIGO OFERTA':'PENDERISCO-SFE-001-2025','AGENTE':'CENTRAL HIDROELÉCTRICA PENDERISCO I S.A.S. E.S.P.','RECURSO':'','TIPO DE GENERACIÓN':'HIDRO','ENERGÍA [kWh/mes]':'3456000','TARIFA  [COP/kWh]':'326.3','MODALIDAD':'PLG','TIPO DE PAGO':'POSPAGO','ESTADO OFERTA':'ACEPTADA','FECHA INICIO':'2026-10-01','FECHA FIN':'2035-12-31','COMENTARIOS':'' },
+    { 'CÓDIGO OFERTA':'','AGENTE':'GENSA S.A. E.S.P.','RECURSO':'','TIPO DE GENERACIÓN':'HIDRO','ENERGÍA [kWh/mes]':'8766667','TARIFA  [COP/kWh]':'','MODALIDAD':'','TIPO DE PAGO':'','ESTADO OFERTA':'ANÁLISIS','FECHA INICIO':'2029-01-01','FECHA FIN':'2044-12-31','COMENTARIOS':'' },
+    { 'CÓDIGO OFERTA':'','AGENTE':'ENERGO-PRO COLOMBIA S.A.S.','RECURSO':'','TIPO DE GENERACIÓN':'HIDRO','ENERGÍA [kWh/mes]':'9583333','TARIFA  [COP/kWh]':'','MODALIDAD':'','TIPO DE PAGO':'','ESTADO OFERTA':'ANÁLISIS','FECHA INICIO':'2027-01-01','FECHA FIN':'2029-12-31','COMENTARIOS':'' },
+    { 'CÓDIGO OFERTA':'','AGENTE':'HIDRALPOR','RECURSO':'','TIPO DE GENERACIÓN':'HIDRO','ENERGÍA [kWh/mes]':'10000000','TARIFA  [COP/kWh]':'','MODALIDAD':'','TIPO DE PAGO':'','ESTADO OFERTA':'ANÁLISIS','FECHA INICIO':'2027-01-01','FECHA FIN':'2028-12-31','COMENTARIOS':'' },
+    { 'CÓDIGO OFERTA':'','AGENTE':'EMPRESAS PÚBLICAS DE URRAO E.S.P','RECURSO':'','TIPO DE GENERACIÓN':'HIDRO','ENERGÍA [kWh/mes]':'424000','TARIFA  [COP/kWh]':'','MODALIDAD':'','TIPO DE PAGO':'','ESTADO OFERTA':'ANÁLISIS','FECHA INICIO':'2026-06-01','FECHA FIN':'2030-12-31','COMENTARIOS':'' },
+  ],
+  venta: [
+    { 'CÓDIGO OFERTA':'SFE-COX-003-2016','AGENTE':'COX ENERGY S.A.S. E.S.P.','RECURSO':'GD SÁBANA DE TORRES','TIPO DE GENERACIÓN':'SOLAR','ENERGÍA [kWh/mes]':'175000','TARIFA  [COP/kWh]':'379','MODALIDAD':'PLG','TIPO DE PAGO':'POSPAGO','ESTADO OFERTA':'ACEPTADA','FECHA INICIO':'2026-09-01','FECHA FIN':'2026-11-30','COMENTARIOS':'' },
+    { 'CÓDIGO OFERTA':'SFE-BIA-002-2026','AGENTE':'BIA ENERGY S.A.S. E.S.P','RECURSO':'','TIPO DE GENERACIÓN':'PORTAFOLIO','ENERGÍA [kWh/mes]':'636168','TARIFA  [COP/kWh]':'430','MODALIDAD':'PLC','TIPO DE PAGO':'POSPAGO','ESTADO OFERTA':'ACEPTADA','FECHA INICIO':'2026-07-01','FECHA FIN':'2026-12-31','COMENTARIOS':'' },
+    { 'CÓDIGO OFERTA':'SFE-BTG-001-2026','AGENTE':'BTG PACTUAL S.A.S. E.S.P','RECURSO':'','TIPO DE GENERACIÓN':'PORTAFOLIO','ENERGÍA [kWh/mes]':'1000000','TARIFA  [COP/kWh]':'400','MODALIDAD':'PLG','TIPO DE PAGO':'POSPAGO','ESTADO OFERTA':'ACEPTADA','FECHA INICIO':'2027-01-01','FECHA FIN':'2027-12-31','COMENTARIOS':'' },
+  ],
+  consolidado: [
+    { 'AÑO':2026,'ACEPTADA':10368000,'ENVIADA':4548600,'NEGOCIACIÓN':4867200,'RECHAZADA':16275000,'VENCIDA':8640000,'ANÁLISIS':2968000,'Posibles':22751800 },
+    { 'AÑO':2027,'ACEPTADA':41472000,'ENVIADA':9097200,'NEGOCIACIÓN':14601600,'RECHAZADA':27900000,'VENCIDA':17280000,'ANÁLISIS':240087960,'Posibles':305258760 },
+    { 'AÑO':2028,'ACEPTADA':41472000,'ENVIADA':9097200,'NEGOCIACIÓN':14601600,'RECHAZADA':27900000,'VENCIDA':17280000,'ANÁLISIS':240087960,'Posibles':305258760 },
+    { 'AÑO':2029,'ACEPTADA':41472000,'ENVIADA':9097200,'NEGOCIACIÓN':14601600,'RECHAZADA':null,'VENCIDA':17280000,'ANÁLISIS':225288000,'Posibles':290458800 },
+    { 'AÑO':2030,'ACEPTADA':41472000,'ENVIADA':9097200,'NEGOCIACIÓN':14601600,'RECHAZADA':null,'VENCIDA':17280000,'ANÁLISIS':110288040,'Posibles':175458840 },
+    { 'AÑO':2031,'ACEPTADA':41472000,'ENVIADA':9097200,'NEGOCIACIÓN':14601600,'RECHAZADA':null,'VENCIDA':17280000,'ANÁLISIS':105200040,'Posibles':170370840 },
+    { 'AÑO':2032,'ACEPTADA':41472000,'ENVIADA':9097200,'NEGOCIACIÓN':null,'RECHAZADA':null,'VENCIDA':17280000,'ANÁLISIS':105200040,'Posibles':155769240 },
+    { 'AÑO':2033,'ACEPTADA':41472000,'ENVIADA':9097200,'NEGOCIACIÓN':null,'RECHAZADA':null,'VENCIDA':17280000,'ANÁLISIS':105200040,'Posibles':155769240 },
+    { 'AÑO':2034,'ACEPTADA':41472000,'ENVIADA':9097200,'NEGOCIACIÓN':null,'RECHAZADA':null,'VENCIDA':17280000,'ANÁLISIS':105200040,'Posibles':155769240 },
+    { 'AÑO':2035,'ACEPTADA':41472000,'ENVIADA':9097200,'NEGOCIACIÓN':null,'RECHAZADA':null,'VENCIDA':17280000,'ANÁLISIS':105200040,'Posibles':155769240 },
+    { 'AÑO':2036,'ACEPTADA':null,'ENVIADA':9097200,'NEGOCIACIÓN':null,'RECHAZADA':null,'VENCIDA':17280000,'ANÁLISIS':105200040,'Posibles':114297240 },
+    { 'AÑO':2037,'ACEPTADA':null,'ENVIADA':null,'NEGOCIACIÓN':null,'RECHAZADA':null,'VENCIDA':17280000,'ANÁLISIS':105200040,'Posibles':105200040 },
+    { 'AÑO':2038,'ACEPTADA':null,'ENVIADA':null,'NEGOCIACIÓN':null,'RECHAZADA':null,'VENCIDA':17280000,'ANÁLISIS':105200040,'Posibles':105200040 },
+    { 'AÑO':2039,'ACEPTADA':null,'ENVIADA':null,'NEGOCIACIÓN':null,'RECHAZADA':null,'VENCIDA':null,'ANÁLISIS':105200040,'Posibles':105200040 },
+    { 'AÑO':2040,'ACEPTADA':null,'ENVIADA':null,'NEGOCIACIÓN':null,'RECHAZADA':null,'VENCIDA':null,'ANÁLISIS':105200040,'Posibles':105200040 },
+    { 'AÑO':2041,'ACEPTADA':null,'ENVIADA':null,'NEGOCIACIÓN':null,'RECHAZADA':null,'VENCIDA':null,'ANÁLISIS':105200040,'Posibles':105200040 },
+    { 'AÑO':2042,'ACEPTADA':null,'ENVIADA':null,'NEGOCIACIÓN':null,'RECHAZADA':null,'VENCIDA':null,'ANÁLISIS':105200040,'Posibles':105200040 },
+    { 'AÑO':2043,'ACEPTADA':null,'ENVIADA':null,'NEGOCIACIÓN':null,'RECHAZADA':null,'VENCIDA':null,'ANÁLISIS':105200040,'Posibles':105200040 },
+    { 'AÑO':2044,'ACEPTADA':null,'ENVIADA':null,'NEGOCIACIÓN':null,'RECHAZADA':null,'VENCIDA':null,'ANÁLISIS':105200040,'Posibles':105200040 },
+  ],
+  resumen: [
+    { año:2026, compra:22751800, venta:4342008 },
+    { año:2027, compra:305258760, venta:12000000 },
+  ]
+};
+
+// ── CHART DEFAULTS ──
+Chart.defaults.color = '#7a80a0';
+Chart.defaults.font.family = "'DM Sans', sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.plugins.legend.display = false;
+
+// ── INIT ──
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) document.getElementById('api-url').value = saved;
+  loadData(saved);
+});
+
+function saveAndLoad() {
+  const url = document.getElementById('api-url').value.trim();
+  if (url) localStorage.setItem(STORAGE_KEY, url);
+  loadData(url);
+}
+
+async function loadData(url) {
+  document.getElementById('loading').style.display = 'flex';
+  try {
+    if (url) {
+      const res = await fetch(url);
+      DATA = await res.json();
+    } else {
+      await new Promise(r => setTimeout(r, 400));
+      DATA = DEMO;
+    }
+    render();
+  } catch (e) {
+    console.error(e);
+    DATA = DEMO;
+    render();
+  }
+  document.getElementById('loading').style.display = 'none';
+}
+
+// ── TABS ──
+function showTab(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('sec-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ── RENDER ──
+function render() {
+  if (!DATA) return;
+  renderKPIs();
+  renderChartConsolidado();
+  renderChartEstados();
+  renderChartTipos();
+  renderChartCompraVenta();
+  renderTableCompra(DATA.compra, null);
+  renderTableVenta(DATA.venta);
+  renderTableConsolidado(DATA.consolidado);
+  renderChartPosibles();
+  renderFilters();
+
+  const d = new Date(DATA.ultimaActualizacion);
+  document.getElementById('last-update').textContent =
+    'Actualizado: ' + d.toLocaleString('es-CO', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+}
+
+// ── KPIs ──
+function renderKPIs() {
+  const compra = DATA.compra || [];
+  const venta  = DATA.venta  || [];
+
+  const totalCompra  = compra.reduce((s,r)=>s+num(r['ENERGÍA [kWh/mes]']),0);
+  const aceptadas    = compra.filter(r=>r['ESTADO OFERTA']==='ACEPTADA').reduce((s,r)=>s+num(r['ENERGÍA [kWh/mes]']),0);
+  const negociacion  = compra.filter(r=>r['ESTADO OFERTA']==='NEGOCIACIÓN').length;
+  const totalVenta   = venta.reduce((s,r)=>s+num(r['ENERGÍA [kWh/mes]']),0);
+  const analisis     = compra.filter(r=>r['ESTADO OFERTA']==='ANÁLISIS').reduce((s,r)=>s+num(r['ENERGÍA [kWh/mes]']),0);
+  const c2026 = (DATA.resumen||[]).find(r=>r.año==2026);
+
+  const kpis = [
+    { label:'Energía compra total', value: fmtM(totalCompra), sub:'kWh/mes activas', color:'#4f7cff' },
+    { label:'Compra aceptada', value: fmtM(aceptadas), sub:'kWh/mes', color:'#34d399' },
+    { label:'En negociación', value: negociacion, sub:'ofertas activas', color:'#a78bfa' },
+    { label:'Energía venta', value: fmtM(totalVenta), sub:'kWh/mes', color:'#f59e0b' },
+    { label:'En análisis', value: fmtM(analisis), sub:'kWh/mes potenciales', color:'#f59e0b' },
+    { label:'Posibles 2026', value: fmtM(c2026 ? c2026.compra : 0), sub:'kWh/mes consolidado', color:'#60a5fa' },
+  ];
+
+  document.getElementById('kpi-strip').innerHTML = kpis.map(k => `
+    <div class="kpi">
+      <div class="kpi-label"><span class="dot" style="background:${k.color}"></span>${k.label}</div>
+      <div class="kpi-value num" style="color:${k.color}">${k.value}</div>
+      <div class="kpi-sub">${k.sub}</div>
+    </div>`).join('');
+}
+
+// ── CHART CONSOLIDADO (stacked bar / line toggle) ──
+function renderChartConsolidado() {
+  const ctx = document.getElementById('chart-consolidado').getContext('2d');
+  if (consolidChart) consolidChart.destroy();
+
+  const rows  = (DATA.consolidado || []).slice(0, 12);
+  const labels = rows.map(r => r['AÑO']);
+  const fields = ['ACEPTADA','ENVIADA','NEGOCIACIÓN','RECHAZADA','VENCIDA','ANÁLISIS'];
+
+  if (consolidMode === 'stacked') {
+    consolidChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: fields.map(f => ({
+          label: f,
+          data: rows.map(r => r[f] || 0),
+          backgroundColor: CONSOL_COLORS[f] + 'cc',
+          borderColor: CONSOL_COLORS[f],
+          borderWidth: 0,
+          borderRadius: 2,
+        }))
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } },
+        scales: {
+          x: { stacked: true, grid: { color: 'rgba(255,255,255,.04)' }, ticks: { maxRotation: 45 } },
+          y: { stacked: true, grid: { color: 'rgba(255,255,255,.04)' }, ticks: { callback: v => fmtM(v) } }
+        }
+      }
+    });
+  } else {
+    consolidChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Posibles',
+          data: rows.map(r => r['Posibles'] || 0),
+          borderColor: '#60a5fa',
+          backgroundColor: '#60a5fa22',
+          fill: true,
+          tension: .35,
+          pointRadius: 4,
+          pointBackgroundColor: '#60a5fa',
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { maxRotation: 45 } },
+          y: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { callback: v => fmtM(v) } }
+        }
+      }
+    });
+  }
+}
+
+function toggleConsolidChart() {
+  consolidMode = consolidMode === 'stacked' ? 'line' : 'stacked';
+  document.getElementById('chart-toggle-btn').textContent =
+    consolidMode === 'stacked' ? 'Vista: barras apiladas' : 'Vista: línea posibles';
+  renderChartConsolidado();
+}
+
+// ── CHART ESTADOS (donut) ──
+function renderChartEstados() {
+  const compra = DATA.compra || [];
+  const counts = {};
+  compra.forEach(r => {
+    const s = r['ESTADO OFERTA'] || '—';
+    counts[s] = (counts[s]||0) + 1;
+  });
+  const labels = Object.keys(counts);
+  const values = Object.values(counts);
+  const colors = labels.map(l => STATUS_COLORS[l] || '#888');
+
+  const ctx = document.getElementById('chart-estados').getContext('2d');
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, hoverOffset: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '68%',
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.label}: ${c.raw}` } } }
+    }
+  });
+
+  document.getElementById('legend-estados').innerHTML = labels.map((l,i) => `
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:${colors[i]}"></div>
+      <span style="font-size:12px">${l}</span>
+      <span class="legend-val">${values[i]}</span>
+    </div>`).join('');
+}
+
+// ── CHART TIPOS (horizontal bar) ──
+function renderChartTipos() {
+  const compra = DATA.compra || [];
+  const energias = {};
+  compra.forEach(r => {
+    const t = r['TIPO DE GENERACIÓN'] || '—';
+    energias[t] = (energias[t]||0) + num(r['ENERGÍA [kWh/mes]']);
+  });
+  const labels = Object.keys(energias);
+  const values = Object.values(energias);
+  const colors = labels.map(l => TIPO_COLORS[l] || '#888');
+
+  const ctx = document.getElementById('chart-tipos-compra').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderRadius: 4, borderWidth: 0 }] },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + fmtM(c.raw) + ' kWh/mes' } } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { callback: v => fmtM(v) } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+// ── CHART COMPRA VS VENTA ──
+function renderChartCompraVenta() {
+  const rows = DATA.resumen || [];
+  const ctx  = document.getElementById('chart-compraventa').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: rows.map(r => r.año),
+      datasets: [
+        { label: 'Compra', data: rows.map(r => r.compra), backgroundColor: '#4f7cffcc', borderRadius: 4, borderWidth: 0 },
+        { label: 'Venta',  data: rows.map(r => r.venta),  backgroundColor: '#34d399cc', borderRadius: 4, borderWidth: 0 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,.04)' } },
+        y: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { callback: v => fmtM(v) } }
+      }
+    }
+  });
+}
+
+// ── CHART POSIBLES ──
+function renderChartPosibles() {
+  const rows = (DATA.consolidado || []);
+  const ctx  = document.getElementById('chart-posibles').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: rows.map(r => r['AÑO']),
+      datasets: [{
+        label: 'Posibles', data: rows.map(r => r['Posibles'] || 0),
+        borderColor: '#60a5fa', backgroundColor: '#60a5fa15',
+        fill: true, tension: .35, pointRadius: 3, pointBackgroundColor: '#60a5fa', borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { maxRotation: 45 } },
+        y: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { callback: v => fmtM(v) } }
+      }
+    }
+  });
+}
+
+// ── FILTERS ──
+let activeFilter = null;
+function renderFilters() {
+  const compra = DATA.compra || [];
+  const estados = [...new Set(compra.map(r => r['ESTADO OFERTA']))].filter(Boolean);
+  const bar = document.getElementById('filter-compra');
+  bar.innerHTML = `<button class="filter-btn active" onclick="filterCompra(null, this)">Todos</button>` +
+    estados.map(e => `<button class="filter-btn badge-${e}" style="border-radius:20px" onclick="filterCompra('${e}', this)">${e}</button>`).join('');
+}
+
+function filterCompra(estado, btn) {
+  document.querySelectorAll('#filter-compra .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTableCompra(DATA.compra, estado);
+}
+
+// ── TABLE COMPRA ──
+function renderTableCompra(rows, filterEstado) {
+  if (!rows) return;
+  const filtered = filterEstado ? rows.filter(r => r['ESTADO OFERTA'] === filterEstado) : rows;
+  document.getElementById('compra-count').textContent = filtered.length + ' ofertas';
+  document.getElementById('body-compra').innerHTML = filtered.map(r => `
+    <tr>
+      <td class="num" style="font-size:10px;color:var(--muted)">${r['CÓDIGO OFERTA'] || '—'}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${r['AGENTE']}">${r['AGENTE']||'—'}</td>
+      <td>${r['RECURSO']||'—'}</td>
+      <td class="tipo-${r['TIPO DE GENERACIÓN']}">${r['TIPO DE GENERACIÓN']||'—'}</td>
+      <td class="num" style="text-align:right">${fmtN(r['ENERGÍA [kWh/mes]'])}</td>
+      <td class="num" style="text-align:right">${r['TARIFA  [COP/kWh]'] ? '$'+parseFloat(r['TARIFA  [COP/kWh]']).toFixed(0) : '—'}</td>
+      <td>${r['MODALIDAD']||'—'}</td>
+      <td><span class="badge badge-${r['ESTADO OFERTA']}">${r['ESTADO OFERTA']||'—'}</span></td>
+      <td class="num">${r['FECHA INICIO']||'—'}</td>
+      <td class="num">${r['FECHA FIN']||'—'}</td>
+      <td style="max-width:160px;color:var(--muted);font-size:11px">${r['COMENTARIOS']||''}</td>
+    </tr>`).join('') || `<tr><td colspan="11" class="empty">Sin datos</td></tr>`;
+}
+
+// ── TABLE VENTA ──
+function renderTableVenta(rows) {
+  if (!rows) return;
+  document.getElementById('venta-count').textContent = rows.length + ' ofertas';
+  document.getElementById('body-venta').innerHTML = rows.map(r => `
+    <tr>
+      <td class="num" style="font-size:10px;color:var(--muted)">${r['CÓDIGO OFERTA']||'—'}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${r['AGENTE']}">${r['AGENTE']||'—'}</td>
+      <td>${r['RECURSO']||'—'}</td>
+      <td class="tipo-${r['TIPO DE GENERACIÓN']}">${r['TIPO DE GENERACIÓN']||'—'}</td>
+      <td class="num" style="text-align:right">${fmtN(r['ENERGÍA [kWh/mes]'])}</td>
+      <td class="num" style="text-align:right">${r['TARIFA  [COP/kWh]'] ? '$'+parseFloat(r['TARIFA  [COP/kWh]']).toFixed(0) : '—'}</td>
+      <td>${r['MODALIDAD']||'—'}</td>
+      <td><span class="badge badge-${r['ESTADO OFERTA']}">${r['ESTADO OFERTA']||'—'}</span></td>
+      <td class="num">${r['FECHA INICIO']||'—'}</td>
+      <td class="num">${r['FECHA FIN']||'—'}</td>
+      <td style="max-width:160px;color:var(--muted);font-size:11px">${r['COMENTARIOS']||''}</td>
+    </tr>`).join('') || `<tr><td colspan="11" class="empty">Sin datos</td></tr>`;
+}
+
+// ── TABLE CONSOLIDADO ──
+function renderTableConsolidado(rows) {
+  if (!rows) return;
+  const fields = ['ACEPTADA','ENVIADA','NEGOCIACIÓN','RECHAZADA','VENCIDA','ANÁLISIS','Posibles'];
+  document.getElementById('body-consolidado').innerHTML = rows.map(r => `
+    <tr>
+      <td class="num" style="font-weight:600">${r['AÑO']}</td>
+      ${fields.map(f => {
+        const v = r[f];
+        if (v === null || v === undefined || v === '') return `<td class="null-cell">—</td>`;
+        const col = CONSOL_COLORS[f] || '#888';
+        return `<td style="color:${col}">${fmtN(v)}</td>`;
+      }).join('')}
+    </tr>`).join('');
+}
+
+// ── HELPERS ──
+function num(v) { return isNaN(parseFloat(v)) ? 0 : parseFloat(v); }
+function fmtM(n) {
+  n = parseFloat(n) || 0;
+  if (n >= 1e9) return (n/1e9).toFixed(1)+'B';
+  if (n >= 1e6) return (n/1e6).toFixed(1)+'M';
+  if (n >= 1e3) return (n/1e3).toFixed(0)+'K';
+  return n.toLocaleString('es-CO');
+}
+function fmtN(v) {
+  const n = parseFloat(v);
+  return isNaN(n) ? '—' : n.toLocaleString('es-CO');
+}
+</script>
+</body>
+</html>
